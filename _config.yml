@@ -1,5 +1,20 @@
 title: Jenkins Pipelines Lab
 description: Enterprise-grade CI/CD Framework with Jenkins Shared Libraries, Kubernetes, and Podman.
-theme: jekyll-theme-minimal
-show_downloads: false
+logo: https://www.jenkins.io/images/logos/jenkins/jenkins.png
+theme: jekyll-theme-cayman
+
+# Configuración del Menú de Navegación (Orden específico)
+header_pages:
+  - index.md
+  - architecture.md
+  - features.md
+  - install.md
+
+# Opciones de Interfaz
+show_downloads: true
 google_analytics: 
+
+# Configuración de Markdown
+markdown: kramdown
+kramdown:
+  input: GFM
