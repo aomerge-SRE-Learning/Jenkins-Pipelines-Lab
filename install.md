@@ -74,10 +74,11 @@ I'll create a sample job to test the setup.
 
 // Initialize the pipeline for an Angular application
 jenkinsPipelinesExample(
-    serviceName: 'my-angular-app',
     language: 'angular',
-    dockerRegistry: 'localhost', // Change this to your registry
-    deployK8s: true
+    dockerRegistry: 'docker.io/your-user',
+    typeDeployd: 'helm', // Optional (defaults to helm in the library)
+    configRepoUrl: 'https://github.com/<org>/config-pipelines-jenkins.git', // Recommended
+    approvers: 'admin' // Optional
 )
 ```
 
@@ -87,9 +88,14 @@ jenkinsPipelinesExample(
 
 I trigger the build manually. If everything is configured correctly, I should see the following stages in the Jenkins UI:
 
-1.  **Checkout:** The code is pulled.
-2.  **Test:** Unit tests run inside a container.
-3.  **Build:** The Docker image is built using Podman.
-4.  **Deploy:** The application is deployed to the Kubernetes cluster.
+1.  **Checkout**
+2.  **Config**
+3.  **Copy values helm** (external config checkout when `configRepoUrl` is set)
+4.  **Copy helm**
+5.  **Test**
+6.  **Build**
+7.  **Approval** (only on branches that require it)
+8.  **Deploy**
+9.  **Remove files** (cleanup)
 
 [Back to Home](./)

@@ -23,12 +23,13 @@ I programmed the pipeline to adapt its behavior based on the Git branch. This su
 
 | Branch | Environment | My Pipeline's Action |
 | :--- | :--- | :--- |
-| **`feature/*`** | **CI (Ephemeral)** | Builds and runs tests to validate the change fast. By default it does not deploy, keeping the cluster clean. |
-| **`PRs`** | **Validation** | Runs Unit Tests and Static Analysis. Does **NOT** push artifacts or deploy, keeping the registry clean. |
-| **`dev`** | **Development** | Builds, Pushes, and **Automatically Deploys** to the dev cluster. |
-| **`qa`** | **QA / Staging** | Builds, Pushes, and deploys to a controlled **QA** environment (`DEPLOY_QA`) to validate integration before production. |
-| **`master/main`** | **Production** | Builds, Pushes Artifacts, and requires an `APPROVAL_GATE` before `DEPLOY_PROD`. |
-| **`hotfix/*`** | **Production Patch** | Runs the same test gates, promotes a fix into `master/main`, then reconciles changes back to `dev`/`qa` to prevent drift. |
+| **`dev`** | **development** | Builds, pushes the image, and deploys automatically. |
+| **`QA`** | **qa** | Builds, pushes the image, and deploys automatically. |
+| **`master/main`** | **production** | Builds, pushes the image, and requires a manual Jenkins `input` approval before deploying. |
+| **`feature-*`** | **feature** | Builds, pushes the image, and deploys automatically (no approval). |
+| **`hotfix-*`** | **hotfix** | Builds/pushes/deploys with manual approval. *(Implemented in Angular strategy.)* |
+| **`bugfix-*`** | **bugfix** | CI-only validation (no push / no deploy). *(Implemented in Angular strategy.)* |
+| **Other branches** | **(branch name)** | CI-only validation: no push, no deploy. |
 
 ---
 

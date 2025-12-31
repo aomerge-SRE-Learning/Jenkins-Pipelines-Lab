@@ -33,8 +33,7 @@ I designed the pipeline execution flow to be linear but flexible. Every executio
 
 ### 1. Initialization & Detection
 The process starts when Jenkins loads the Shared Library. My code immediately:
-*   **Validates the Environment:** Checks if the necessary tools (Podman, Helm, Java) are available on the agent.
-*   **Detects the Language:** It looks for key files (e.g., `angular.json` for Angular, `pom.xml` for Java) to determine which pipeline strategy to instantiate.
+*   **Selects the Language Strategy:** It routes execution based on the `language` value passed to the shared library (`angular` or `java`).
 
 ### 2. The Build Phase (Rootless & Secure)
 Security was a major focus for me. I chose **Podman** over Docker for the build process because it allows for **rootless containers**.
@@ -42,10 +41,7 @@ Security was a major focus for me. I chose **Podman** over Docker for the build 
 *   **Artifact Generation:** The output (compiled code, binaries) is stored temporarily in the workspace.
 
 ### 3. Quality Gates
-I integrated strict quality checks. The pipeline will fail immediately if:
-*   Unit tests fail.
-*   Code coverage drops below a defined threshold.
-*   SonarQube quality gates are not met (optional integration).
+The pipeline enforces a strict baseline gate: **unit tests must pass**.
 
 ### 4. Packaging & Publishing
 Once the code passes all checks, I package it into an immutable container image.
@@ -63,27 +59,44 @@ For a deeper explanation of the promotion rules and review gates, see the dedica
 ![Branching & Promotion Flow](./draws/branch..svg)
 
 ### Environment Mapping
-I mapped Git branches to Kubernetes environments:
+I mapped Git branches to pipeline behaviors and environments as implemented in the shared library:
 
-*   **`feature/*` Branches:**
-    *   **Action:** CI Only (Build & Test).
-    *   **Goal:** Verify code quality before merging. No deployment happens here to save resources, though ephemeral environments can be enabled if needed.
+*   **`feature-*` Branches:**
+    *   **Action:** Build/Test + image push + deploy (no manual approval).
+    *   **Goal:** Fast feedback with an end-to-end run.
 
 *   **`dev` Branch:**
     *   **Action:** Continuous Deployment (CD) to the **Development** namespace.
     *   **Goal:** Immediate feedback loop for developers. As soon as code is merged to `dev`, it's live in the dev environment.
 
-*   **`qa` Branch:**
+*   **`QA` Branch:**
     *   **Action:** Deployment to **QA/Staging**.
     *   **Goal:** Integration validation before production (the last controlled checkpoint).
 
 *   **`master/main` Branch:**
     *   **Action:** Staged Deployment to **Production**.
-    *   **Goal:** Stability. The pipeline pauses and waits for an `APPROVAL_GATE` before deploying.
+    *   **Goal:** Stability. The pipeline pauses and waits for a manual Jenkins `input` approval before deploying.
 
-*   **`hotfix/*` Branches:**
-    *   **Action:** Fast-track fixes.
-    *   **Goal:** Apply urgent production patches and then reconcile changes back into `dev`/`qa` to prevent drift.
+*   **`hotfix-*` Branches:**
+    *   **Action:** Fast-track fixes (approval required).
+    *   **Scope:** Implemented in the Angular strategy.
+
+*   **`bugfix-*` Branches:**
+    *   **Action:** CI-only validation (no push / no deploy).
+    *   **Scope:** Implemented in the Angular strategy.
+
+**Note:** Branch names are matched exactly (e.g., `QA` uppercase and `feature-...` with dash).
+
+---
+
+## ⚙️ Configuration & Helm Values
+
+The pipeline splits “how to deploy” from “where to deploy”:
+
+*   **Helm chart template** is copied into the workspace under `helm/`.
+*   **Service-specific values** are expected at `config/<serviceName>/deploy-helm.yaml`.
+
+In the current implementation, the recommended way to supply those values is configuring an external repo via `configRepoUrl` so the pipeline checks it out into `config/`.
 
 ---
 
@@ -103,6 +116,11 @@ I defined a common interface for what a pipeline should do (`build()`, `test()`,
 *   **`AngularPipeline.groovy`:** Implements these methods specifically for TypeScript/Node.js workflows. It knows how to run `npm install` and `ng build`.
 *   **`JavaPipeline.groovy`:** Implements them for Maven/Gradle. It knows how to run `mvn clean install`.
 
+Important practical detail: branch behaviors are not identical across strategies today.
+
+*   Angular includes explicit handling for `bugfix-*` and `hotfix-*`.
+*   Java currently handles `feature-*`, `dev`, `QA`, `master/main` and treats other branches as “CI-only”.
+
 #### 3. Configuration Management (`config/`)
 I separated configuration from code.
 *   **`ClusterPipeline.groovy`:** Handles Kubernetes connectivity details.
@@ -113,6 +131,8 @@ I noticed that build agents often run out of disk space. I wrote this utility cl
 *   Temporary workspaces.
 *   Dangling container images.
 *   Stopped containers.
+
+In this lab, the cleanup is executed as an explicit pipeline stage (`Remove files`) that calls the `Trash` component.
 
 ---
 
@@ -128,7 +148,6 @@ Managing raw Kubernetes YAML files is error-prone. I created a **Generic Helm Ch
 
 ### Why Groovy Shared Libraries?
 I wanted "Infrastructure as Code" to be real code, not just configuration. Groovy allows me to:
-*   **Unit Test** my pipeline logic.
 *   **Reuse Code** across hundreds of projects.
 *   **Version Control** the pipeline definition itself.
 
